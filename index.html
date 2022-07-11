@@ -1,10 +1,99 @@
+<!DOCTYPE html>
 <html>
-	<head>
-		<title> Bioethanol knowledgebase</title>
-		<link rel="stylesheet" href="styles.css">
-	</head>
-	<body>
 	
-		<section><h2> Hello!!! <br>This website is currently under construction. A lot of interesting stuff coming up soon!!</h2></section>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+	
+		<title>Welcome</title>
+		<link rel="stylesheet" type="text/css" href="styles.css">
+		
+		<!-- JQuery -->
+		<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+
+		<!-- Text-search -->
+		<script src="https://unpkg.com/lunr/lunr.js"></script>
+		<script src="./json_files/lunr-index.json"></script>
+
+		<!-- Cytoscape script -->
+		<script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+		
+		<!-- Layout scripts -->
+		<script src="./layouts/layout-base.js"></script>
+		<script src="./layouts/avsdf-base.js"></script>
+		<script src="./layouts/cose-base.js"></script>
+		<script src="./layouts/cise.js"></script>
+	</head>
+
+	<body>
+		<div id="wrapper">
+			<h1>Fungal LPMO Knowledgebase network</h1><br/><br/>
+			<input type="text" name="query" id="query"><br>
+			<button id="submit" onclick="search()">Submit</button>
+		</div>
+		<div id="cy"></div>
 	</body>
+
+	<!-- Search query in the indexed file and build the network -->
+	<script type="text/javascript">
+
+		var documents = JSON.parse(indexed_data);
+		var lunr_idx = lunr(function () {
+  			this.ref('idx')
+  			this.field('from')
+  			this.field('to')
+
+  			documents.forEach(function (doc) {
+    		this.add(doc)
+  			}, this)
+		})
+
+		function search()
+		{	
+			let query = $('#query').val();
+			var res = lunr_idx.search(query);
+			let edgeList = [], froms = [], tos=[];
+
+			for (let i=0; i<res.length; i++)
+			{	
+				froms.push(JSON.stringify({ data: {id: documents[res[i]['ref']]['from']}, classes: documents[res[i]['ref']]['fromClass']}));
+				tos.push(JSON.stringify({ data: {id: documents[res[i]['ref']]['to']}, classes: documents[res[i]['ref']]['toClass']}));	
+				var edge = { data: { id: "edge-"+i, source: documents[res[i]['ref']]['from'], target: documents[res[i]['ref']]['to'] } };
+				edgeList.push(edge);
+			}
+			
+
+			console.log([deDuplicateList(froms), deDuplicateList(tos), edgeList]);
+			$('#wrapper').fadeOut(1000,buildNetwork([...deDuplicateList(froms), ...deDuplicateList(tos), ...edgeList]));
+			
+			//cy.center(cy.$('#cellulose'));
+		}
+
+		function deDuplicateList(list)
+		{
+			list = [...new Set(list)];
+			list.forEach(function(part,index){
+				this[index] = JSON.parse(part)},list);
+			return list;			
+		}
+
+		function buildNetwork(elements)
+		{
+			var cy = cytoscape({
+			container: $('#cy'),
+			elements: elements,
+			layout : { name: 'cise' },
+			style: [
+					{ selector: 'node', style: { 'label': 'data(id)', 'color': 'black', 'width': '10px', 'height': '10px', 'font-size': '5px','border-width': '0.5px', 'border-color': 'black' } },
+					{ selector: 'edge', style: {'width': '0.5px' ,'line-color':'black'} },
+					{ selector: '.GSE_ids', style: { 'background-color': '#FF5959' } },
+					{ selector: '.substrates', style: { 'background-color': '#676FA3' } },
+					{ selector: '.organisms', style: { 'background-color': '#CDDEFF' } },
+					{ selector: '.pubmeds', style: { 'background-color': '#91C483' } },
+					{ selector: '.authors', style: { 'background-color': '#FF0075' } }
+				],
+			});
+		}
+	</script>
+
 </html>
